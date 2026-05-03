@@ -1,5 +1,6 @@
 package cyberdynesoftware.musink
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.os.Environment
@@ -9,7 +10,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,7 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Forward5
 import androidx.compose.material.icons.filled.Headphones
@@ -32,7 +33,6 @@ import androidx.compose.material.icons.filled.Replay5
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,11 +41,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -57,15 +58,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import androidx.core.content.edit
 import androidx.core.net.toUri
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.lazy.LazyColumnMMD
 import com.mudita.mmd.components.menus.DropdownMenuItemMMD
 import com.mudita.mmd.components.menus.DropdownMenuMMD
+import com.mudita.mmd.components.snackbar.SnackbarHostMMD
+import com.mudita.mmd.components.snackbar.SnackbarHostStateMMD
 import com.mudita.mmd.components.switcher.SwitchMMD
 import com.mudita.mmd.components.top_app_bar.TopAppBarDefaultsMMD
 import com.mudita.mmd.components.top_app_bar.TopAppBarMMD
 import cyberdynesoftware.musink.ui.theme.MusinkTheme
+import kotlinx.coroutines.launch
 import java.io.File
 
 class MainActivity : ComponentActivity() {
@@ -74,7 +79,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         checkStoragePermission()
-        navTo(Environment.getExternalStorageDirectory())
+        navTo(startingDirectory())
         enableEdgeToEdge()
         setContent {
             MusinkTheme {
@@ -91,6 +96,15 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    fun startingDirectory(): File {
+        val home = getSharedPreferences("prefs", MODE_PRIVATE).getString("home", null)
+        return if (home == null) {
+            Environment.getExternalStorageDirectory()
+        } else {
+            File(home)
+        }
+    }
 }
 
 val currentPath = mutableStateOf(File("/"))
@@ -105,6 +119,11 @@ fun navTo(path: File) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainContent() {
+    val prefs = LocalContext.current.getSharedPreferences("prefs", Context.MODE_PRIVATE)
+    var showContextMenu by remember { mutableStateOf(false) }
+    var selectedIndex by remember { mutableIntStateOf(-1) }
+    val snackbarHostState = remember { SnackbarHostStateMMD() }
+
     BackHandler(true) {
         currentPath.value.parentFile?.let {
             navTo(it)
@@ -113,7 +132,8 @@ fun MainContent() {
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        topBar = { TopBar() }
+        topBar = { TopBar(snackbarHostState) },
+        snackbarHost = { SnackbarHostMMD(hostState = snackbarHostState) }
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -133,18 +153,43 @@ fun MainContent() {
                     .weight(1f)
                     .imePadding()
             ) {
-                items(mainList) {
+                itemsIndexed(mainList) { index, item ->
                     Row(
                         modifier = Modifier
                             .padding(16.dp)
-                            .clickable {
-                                if (it.path.isDirectory) {
-                                    navTo(it.path)
+                            .combinedClickable(
+                                onClick = {
+                                    if (item.path.isDirectory) {
+                                        navTo(item.path)
+                                    }
+                                },
+                                onLongClick = {
+                                    if (item.path.isDirectory) {
+                                        selectedIndex = index
+                                        showContextMenu = true
+                                    }
                                 }
-                            }
+                            )
                     ) {
-                        Icon(it.icon, contentDescription = "icon", Modifier.padding(end = 8.dp))
-                        Text(it.label, textAlign = TextAlign.Center, maxLines = 1)
+                        Icon(item.icon, contentDescription = "icon", Modifier.padding(end = 8.dp))
+                        Text(item.label, textAlign = TextAlign.Center, maxLines = 1)
+                        DropdownMenuMMD(
+                            expanded = showContextMenu && selectedIndex == index,
+                            onDismissRequest = { showContextMenu = false },
+                        ) {
+                            DropdownMenuItemMMD(
+                                text = { Text("Set as home") },
+                                onClick = {
+                                    showContextMenu = false
+                                    prefs.edit {
+                                        putString("home", item.path.path)
+                                    }
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Home, contentDescription = "home")
+                                }
+                            )
+                        }
                     }
                     DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 }
@@ -157,7 +202,9 @@ fun MainContent() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TopBar(modifier: Modifier = Modifier) {
+fun TopBar(snackbarHostState: SnackbarHostStateMMD, modifier: Modifier = Modifier) {
+    val scope = rememberCoroutineScope()
+    val prefs = LocalContext.current.getSharedPreferences("prefs", Context.MODE_PRIVATE)
     TopAppBarMMD(
         title = { Text(stringResource(R.string.app_name)) },
         navigationIcon = {
@@ -170,19 +217,30 @@ fun TopBar(modifier: Modifier = Modifier) {
                     Icon(
                         imageVector = Icons.Default.Headphones,
                         contentDescription = "back",
-                        modifier = modifier.size(24.dp)
+                        modifier = modifier.size(32.dp)
                     )
                 }
             }
         },
         actions = {
-            Icon(
-                imageVector = Icons.Default.Home,
-                contentDescription = "home",
-                modifier = modifier
-                    .padding(8.dp)
-                    .size(24.dp)
-            )
+            IconButton(
+                onClick = {
+                    val home = prefs.getString("home", null)
+                    if (home == null) {
+                        scope.launch { snackbarHostState.showSnackbar("Home not set. Set with long click.") }
+                    } else {
+                        navTo(File(home))
+                    }
+                }
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Home,
+                    contentDescription = "home",
+                    modifier = modifier
+                        .padding(8.dp)
+                        .size(32.dp)
+                )
+            }
             OptionsMenu()
         }
     )
@@ -244,21 +302,21 @@ fun OptionsMenu() {
                 StorageDropDownMenuItem(it) { expanded = false }
             }
             DashedDivider()
-            DropdownMenuItemMMD(
-                text = { Text("Favorites") },
-                onClick = { expanded = false },
-                leadingIcon = {
-                    Icon(Icons.Default.Star, contentDescription = "favorites")
-                },
-                trailingIcon = {
-                    SwitchMMD(
-                        false,
-                        onCheckedChange = {
-
-                        }
-                    )
-                }
-            )
+//            DropdownMenuItemMMD(
+//                text = { Text("Favorites") },
+//                onClick = { expanded = false },
+//                leadingIcon = {
+//                    Icon(Icons.Default.Star, contentDescription = "favorites")
+//                },
+//                trailingIcon = {
+//                    SwitchMMD(
+//                        false,
+//                        onCheckedChange = {
+//
+//                        }
+//                    )
+//                }
+//            )
             DropdownMenuItemMMD(
                 text = { Text("Shuffle") },
                 onClick = { expanded = false },

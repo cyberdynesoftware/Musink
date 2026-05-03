@@ -9,7 +9,6 @@ import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.SdCard
 import androidx.compose.material.icons.filled.Storage
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.graphics.vector.ImageVector
 import java.io.File
 
