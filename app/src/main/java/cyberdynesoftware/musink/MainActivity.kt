@@ -2,6 +2,7 @@ package cyberdynesoftware.musink
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.filled.Forward5
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay5
 import androidx.compose.material.icons.filled.Shuffle
@@ -59,6 +61,8 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import androidx.core.net.toUri
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.lazy.LazyColumnMMD
 import com.mudita.mmd.components.menus.DropdownMenuItemMMD
@@ -73,18 +77,22 @@ import cyberdynesoftware.musink.ui.theme.MusinkTheme
 import kotlinx.coroutines.launch
 import java.io.File
 
+lateinit var player: ExoPlayer
+val playing = mutableStateOf(false)
+
 class MainActivity : ComponentActivity() {
 
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        player = ExoPlayer.Builder(baseContext).build()
+        player.prepare()
         checkStoragePermission()
         navTo(startingDirectory())
         enableEdgeToEdge()
         setContent {
             MusinkTheme {
                 MainContent()
-                //ListsScreen()
             }
         }
     }
@@ -165,7 +173,7 @@ fun MainContent() {
                                     if (item.path.isDirectory) {
                                         navTo(item.path)
                                     } else if (item.isAudio) {
-
+                                        play(item)
                                     }
                                 },
                                 onLongClick = {
@@ -177,7 +185,12 @@ fun MainContent() {
                             )
                     ) {
                         Icon(item.icon, contentDescription = "icon", Modifier.padding(end = 8.dp))
-                        TextMMD(item.label, textAlign = TextAlign.Center, maxLines = 1, softWrap = false)
+                        TextMMD(
+                            item.label,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            softWrap = false
+                        )
                         DropdownMenuMMD(
                             expanded = showContextMenu && selectedIndex == index,
                             onDismissRequest = { showContextMenu = false },
@@ -207,6 +220,15 @@ fun MainContent() {
     }
 }
 
+fun play(item: FileItem) {
+    player.setMediaItems(mainList.map { MediaItem.fromUri(Uri.fromFile(it.path)) })
+    repeat(mainList.indexOf(item)) {
+        player.seekToNextMediaItem()
+    }
+    player.play()
+    playing.value = true
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TopBar(snackbarHostState: SnackbarHostStateMMD, modifier: Modifier = Modifier) {
@@ -234,7 +256,7 @@ fun TopBar(snackbarHostState: SnackbarHostStateMMD, modifier: Modifier = Modifie
                 onClick = {
                     val home = prefs.getString("home", null)
                     if (home == null) {
-                        scope.launch { snackbarHostState.showSnackbar("Home not set. Set with long click.") }
+                        scope.launch { snackbarHostState.showSnackbar("Home not set. Set with a long click.") }
                     } else {
                         navTo(File(home))
                     }
@@ -260,31 +282,75 @@ fun ButtonRow() {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
-        Icon(
-            imageVector = Icons.Default.SkipPrevious,
-            contentDescription = "previous",
-            modifier = Modifier.size(32.dp)
-        )
-        Icon(
-            imageVector = Icons.Default.Replay5,
-            contentDescription = "replay",
-            modifier = Modifier.size(32.dp)
-        )
-        Icon(
-            imageVector = Icons.Default.PlayArrow,
-            contentDescription = "play",
-            modifier = Modifier.size(32.dp)
-        )
-        Icon(
-            imageVector = Icons.Default.Forward5,
-            contentDescription = "forward",
-            modifier = Modifier.size(32.dp)
-        )
-        Icon(
-            imageVector = Icons.Default.SkipNext,
-            contentDescription = "next",
-            modifier = Modifier.size(32.dp)
-        )
+        IconButton(
+            onClick = {
+                player.seekToPreviousMediaItem()
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Default.SkipPrevious,
+                contentDescription = "previous",
+                modifier = Modifier.size(32.dp)
+            )
+        }
+        IconButton(
+            onClick = {
+
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Default.Replay5,
+                contentDescription = "replay",
+                modifier = Modifier.size(32.dp)
+            )
+        }
+        IconButton(
+            onClick = {
+                if (player.isPlaying) {
+                    player.pause()
+                    playing.value = false
+                } else {
+                    player.play()
+                    playing.value = true
+                }
+            }
+        ) {
+            if (playing.value) {
+                Icon(
+                    imageVector = Icons.Default.Pause,
+                    contentDescription = "play",
+                    modifier = Modifier.size(32.dp)
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = "play",
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+        }
+        IconButton(
+            onClick = {
+
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Default.Forward5,
+                contentDescription = "forward",
+                modifier = Modifier.size(32.dp)
+            )
+        }
+        IconButton(
+            onClick = {
+                player.seekToNextMediaItem()
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Default.SkipNext,
+                contentDescription = "next",
+                modifier = Modifier.size(32.dp)
+            )
+        }
     }
 }
 

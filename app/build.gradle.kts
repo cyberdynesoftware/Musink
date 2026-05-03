@@ -60,4 +60,5 @@ dependencies {
     implementation(libs.compose.material.icons)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.datastore.preferences.core)
+    implementation(libs.androidx.media3.exoplayer)
 }
