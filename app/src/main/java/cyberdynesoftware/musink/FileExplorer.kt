@@ -19,7 +19,7 @@ data class FileItem(
     val label: String,
     val icon: ImageVector,
     val path: File,
-    val audio: Boolean
+    val isAudio: Boolean
 )
 
 fun internalStorage(): FileItem {

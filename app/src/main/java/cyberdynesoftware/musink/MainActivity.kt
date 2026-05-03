@@ -38,7 +38,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -67,6 +66,7 @@ import com.mudita.mmd.components.menus.DropdownMenuMMD
 import com.mudita.mmd.components.snackbar.SnackbarHostMMD
 import com.mudita.mmd.components.snackbar.SnackbarHostStateMMD
 import com.mudita.mmd.components.switcher.SwitchMMD
+import com.mudita.mmd.components.text.TextMMD
 import com.mudita.mmd.components.top_app_bar.TopAppBarDefaultsMMD
 import com.mudita.mmd.components.top_app_bar.TopAppBarMMD
 import cyberdynesoftware.musink.ui.theme.MusinkTheme
@@ -126,7 +126,9 @@ fun MainContent() {
 
     BackHandler(true) {
         currentPath.value.parentFile?.let {
-            navTo(it)
+            if (it.canRead()) {
+                navTo(it)
+            }
         }
     }
 
@@ -157,10 +159,13 @@ fun MainContent() {
                     Row(
                         modifier = Modifier
                             .padding(16.dp)
+                            .fillMaxWidth()
                             .combinedClickable(
                                 onClick = {
                                     if (item.path.isDirectory) {
                                         navTo(item.path)
+                                    } else if (item.isAudio) {
+
                                     }
                                 },
                                 onLongClick = {
@@ -172,13 +177,13 @@ fun MainContent() {
                             )
                     ) {
                         Icon(item.icon, contentDescription = "icon", Modifier.padding(end = 8.dp))
-                        Text(item.label, textAlign = TextAlign.Center, maxLines = 1)
+                        TextMMD(item.label, textAlign = TextAlign.Center, maxLines = 1, softWrap = false)
                         DropdownMenuMMD(
                             expanded = showContextMenu && selectedIndex == index,
                             onDismissRequest = { showContextMenu = false },
                         ) {
                             DropdownMenuItemMMD(
-                                text = { Text("Set as home") },
+                                text = { TextMMD("Set as home") },
                                 onClick = {
                                     showContextMenu = false
                                     prefs.edit {
@@ -191,7 +196,9 @@ fun MainContent() {
                             )
                         }
                     }
-                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    if (index < mainList.size - 1) {
+                        DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    }
                 }
             }
             HorizontalDividerMMD(color = TopAppBarDefaultsMMD.dividerColor, thickness = 1.dp)
@@ -206,7 +213,7 @@ fun TopBar(snackbarHostState: SnackbarHostStateMMD, modifier: Modifier = Modifie
     val scope = rememberCoroutineScope()
     val prefs = LocalContext.current.getSharedPreferences("prefs", Context.MODE_PRIVATE)
     TopAppBarMMD(
-        title = { Text(stringResource(R.string.app_name)) },
+        title = { TextMMD(stringResource(R.string.app_name)) },
         navigationIcon = {
             Box(modifier = modifier.padding(4.dp)) {
                 IconButton(
@@ -236,9 +243,7 @@ fun TopBar(snackbarHostState: SnackbarHostStateMMD, modifier: Modifier = Modifie
                 Icon(
                     imageVector = Icons.Default.Home,
                     contentDescription = "home",
-                    modifier = modifier
-                        .padding(8.dp)
-                        .size(32.dp)
+                    modifier = modifier.size(32.dp)
                 )
             }
             OptionsMenu()
@@ -318,7 +323,7 @@ fun OptionsMenu() {
 //                }
 //            )
             DropdownMenuItemMMD(
-                text = { Text("Shuffle") },
+                text = { TextMMD("Shuffle") },
                 onClick = { expanded = false },
                 leadingIcon = {
                     Icon(Icons.Default.Shuffle, contentDescription = "shuffle")
@@ -339,7 +344,7 @@ fun OptionsMenu() {
 @Composable
 fun StorageDropDownMenuItem(it: FileItem, callback: () -> Unit) {
     DropdownMenuItemMMD(
-        text = { Text(it.label) },
+        text = { TextMMD(it.label) },
         onClick = {
             callback()
             navTo(it.path)
