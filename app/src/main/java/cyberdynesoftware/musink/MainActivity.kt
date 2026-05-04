@@ -25,6 +25,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AudioFile
+import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.Forward5
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Home
@@ -55,6 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
@@ -62,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.lazy.LazyColumnMMD
@@ -85,7 +89,25 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        player = ExoPlayer.Builder(baseContext).build()
+        player = ExoPlayer.Builder(baseContext)
+            .setSeekBackIncrementMs(5000)
+            .setSeekForwardIncrementMs(5000)
+            .build()
+        player.addListener(object : Player.Listener {
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                    display("auto transition")
+                    highlightCurrentlyPlaying(currentlyPlayingIndex, false)
+                    currentlyPlayingIndex++
+                    highlightCurrentlyPlaying(currentlyPlayingIndex, true)
+                }
+                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK) {
+                    highlightCurrentlyPlaying(currentlyPlayingIndex, false)
+                    currentlyPlayingIndex += seekDirection
+                    highlightCurrentlyPlaying(currentlyPlayingIndex, true)
+                }
+            }
+        })
         player.prepare()
         checkStoragePermission()
         navTo(startingDirectory())
@@ -116,6 +138,8 @@ class MainActivity : ComponentActivity() {
 }
 
 val currentPath = mutableStateOf(File("/"))
+var currentlyPlayingIndex = -1
+var seekDirection = 0
 val mainList = mutableStateListOf<FileItem>()
 
 fun navTo(path: File) {
@@ -189,7 +213,8 @@ fun MainContent() {
                             item.label,
                             textAlign = TextAlign.Center,
                             maxLines = 1,
-                            softWrap = false
+                            softWrap = false,
+                            fontWeight = item.fontWeight
                         )
                         DropdownMenuMMD(
                             expanded = showContextMenu && selectedIndex == index,
@@ -221,12 +246,31 @@ fun MainContent() {
 }
 
 fun play(item: FileItem) {
-    player.setMediaItems(mainList.map { MediaItem.fromUri(Uri.fromFile(it.path)) })
-    repeat(mainList.indexOf(item)) {
-        player.seekToNextMediaItem()
+    player.setMediaItems(
+        mainList
+            .filter { it.isAudio }
+            .map { MediaItem.fromUri(Uri.fromFile(it.path)) })
+    mainList.indexOf(item).let {
+        repeat(it) { player.seekToNextMediaItem() }
+        highlightCurrentlyPlaying(currentlyPlayingIndex, false)
+        highlightCurrentlyPlaying(it, true)
+        currentlyPlayingIndex = it
     }
     player.play()
     playing.value = true
+}
+
+fun highlightCurrentlyPlaying(index: Int, isPlaying: Boolean) {
+    if (0 <= index && index < mainList.size) {
+        val item = mainList[index]
+        mainList[index] = FileItem(
+            item.label,
+            if (isPlaying) Icons.Default.Audiotrack else Icons.Default.AudioFile,
+            item.path,
+            true,
+            if (isPlaying) FontWeight.Bold else null
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -295,7 +339,8 @@ fun ButtonRow() {
         }
         IconButton(
             onClick = {
-
+                seekDirection = -1
+                player.seekBack()
             }
         ) {
             Icon(
@@ -331,7 +376,7 @@ fun ButtonRow() {
         }
         IconButton(
             onClick = {
-
+                player.seekForward()
             }
         ) {
             Icon(
@@ -342,6 +387,7 @@ fun ButtonRow() {
         }
         IconButton(
             onClick = {
+                seekDirection = 1
                 player.seekToNextMediaItem()
             }
         ) {

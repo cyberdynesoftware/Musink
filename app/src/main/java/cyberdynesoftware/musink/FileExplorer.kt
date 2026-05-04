@@ -13,13 +13,15 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.SdCard
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import java.io.File
 
 data class FileItem(
     val label: String,
     val icon: ImageVector,
     val path: File,
-    val isAudio: Boolean
+    val isAudio: Boolean,
+    var fontWeight: FontWeight?
 )
 
 fun internalStorage(): FileItem {
@@ -27,7 +29,8 @@ fun internalStorage(): FileItem {
         "Internal Storage",
         Icons.Default.Storage,
         Environment.getExternalStorageDirectory(),
-        false
+        false,
+        null
     )
 }
 
@@ -40,7 +43,8 @@ fun removableStorage(context: Context): List<FileItem> {
                 volume.getDescription(context),
                 Icons.Default.SdCard,
                 File(Environment.getStorageDirectory().path + "/" + volume.mediaStoreVolumeName?.uppercase()),
-                false
+                false,
+                null
             )
         )
     }
@@ -56,7 +60,8 @@ fun listDirectory(file: File): List<FileItem> {
                     dirEntry.name,
                     iconFor(dirEntry),
                     dirEntry,
-                    isAudioFile(dirEntry)
+                    isAudioFile(dirEntry),
+                    null
                 )
             )
         }
