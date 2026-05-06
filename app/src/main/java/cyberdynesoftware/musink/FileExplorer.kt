@@ -66,7 +66,7 @@ fun listDirectory(file: File): List<FileItem> {
             )
         }
     }
-    result.sortBy { it.label }
+    result.sortWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.label })
     return result
 }
 
