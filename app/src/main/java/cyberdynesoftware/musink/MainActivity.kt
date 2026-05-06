@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Forward5
@@ -76,7 +77,6 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 lateinit var player: Player
-val playing = mutableStateOf(false)
 
 class MainActivity : ComponentActivity() {
 
@@ -113,13 +113,21 @@ class MainActivity : ComponentActivity() {
 }
 
 val currentPath = mutableStateOf(File("/"))
+val currentSongPath = mutableStateOf(File("/"))
+val playing = mutableStateOf(false)
 val mainList = mutableStateListOf<FileItem>()
 
 fun navTo(path: File) {
     currentPath.value = path
     mainList.clear()
     mainList.addAll(listDirectory(path))
+
+    if (currentSongPath.value == path) {
+        highlightCurrentlyPlaying(fileIndex(player.currentMediaItemIndex), true)
+    }
 }
+
+val listState = LazyListState()
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -158,7 +166,8 @@ fun MainContent() {
                 modifier = Modifier
                     .consumeWindowInsets(innerPadding)
                     .weight(1f)
-                    .imePadding()
+                    .imePadding(),
+                state = listState
             ) {
                 itemsIndexed(mainList) { index, item ->
                     Row(
@@ -170,6 +179,7 @@ fun MainContent() {
                                     if (item.path.isDirectory) {
                                         navTo(item.path)
                                     } else if (item.isAudio) {
+                                        currentSongPath.value = currentPath.value
                                         play(item)
                                     }
                                 },
