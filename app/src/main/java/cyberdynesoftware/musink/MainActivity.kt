@@ -356,6 +356,7 @@ fun ButtonRow() {
 @Composable
 fun OptionsMenu() {
     var expanded by remember { mutableStateOf(false) }
+    var shuffleEnabled by remember { mutableStateOf(false) }
 
     Box {
         IconButton(onClick = { expanded = true }) {
@@ -395,9 +396,10 @@ fun OptionsMenu() {
                 },
                 trailingIcon = {
                     SwitchMMD(
-                        false,
+                        shuffleEnabled,
                         onCheckedChange = {
-
+                            shuffleEnabled = it
+                            player.shuffleModeEnabled = it
                         }
                     )
                 }
