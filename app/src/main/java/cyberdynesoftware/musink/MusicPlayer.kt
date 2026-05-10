@@ -23,9 +23,6 @@ fun initPlayer(context: Context): Player {
 
     player.addListener(object : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            display("onTransition")
-            display(player.currentMediaItemIndex.toString())
-
             if (currentSongPath.value == currentPath.value) {
                 if (previousMediaItemIndex >= 0) {
                     highlightCurrentlyPlaying(fileIndex(previousMediaItemIndex), false)
@@ -54,7 +51,7 @@ fun initPlayer(context: Context): Player {
 }
 
 fun lastVisibleItemIndex(firstVisibleItemIndex: Int): Int {
-    val numberOfVisibleItems = 7 // on my Kompakt
+    val numberOfVisibleItems = 8 // on my Kompakt
     return firstVisibleItemIndex + numberOfVisibleItems - 1
 }
 

@@ -1,18 +1,17 @@
 package cyberdynesoftware.musink
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
-import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.annotation.RequiresPermission
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -64,7 +63,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat.requestPermissions
-import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.media3.common.Player
@@ -114,13 +112,10 @@ class MainActivity : ComponentActivity() {
 
 
     fun checkBluetoothPermission() {
-        Manifest.permission.BLUETOOTH_CONNECT.let {
-            val permission = ContextCompat.checkSelfPermission(this, it)
-            if (permission == PackageManager.PERMISSION_GRANTED) {
-                initBluetooth(baseContext)
-            } else {
-                requestPermissions(this, arrayOf(it), 17)
-            }
+        if (checkBluetoothPermission(baseContext)) {
+            initBluetooth(baseContext)
+        } else {
+            requestPermissions(this, arrayOf(Manifest.permission.BLUETOOTH_CONNECT), 17)
         }
     }
 
@@ -133,7 +128,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String?>,
@@ -143,11 +137,6 @@ class MainActivity : ComponentActivity() {
         if (requestCode == 17 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             initBluetooth(baseContext)
         }
-    }
-
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        display("keyCode: $keyCode")
-        return super.onKeyDown(keyCode, event)
     }
 }
 
@@ -211,7 +200,7 @@ fun MainContent() {
                 itemsIndexed(mainList) { index, item ->
                     Row(
                         modifier = Modifier
-                            .padding(16.dp)
+                            .padding(12.dp)
                             .fillMaxWidth()
                             .combinedClickable(
                                 onClick = {
@@ -267,18 +256,27 @@ fun MainContent() {
     }
 }
 
+@SuppressLint("MissingPermission") // In case of a missing permission the list is empty.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TopBar(snackbarHostState: SnackbarHostStateMMD, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val prefs = LocalContext.current.getSharedPreferences("prefs", Context.MODE_PRIVATE)
+    var deviceMenuExpanded by remember { mutableStateOf(false) }
     TopAppBarMMD(
         title = { TextMMD(stringResource(R.string.app_name)) },
         navigationIcon = {
             Box(modifier = modifier.padding(4.dp)) {
                 IconButton(
                     onClick = {
-
+                        getDevices(context).let {
+                            if (it.size == 1) {
+                                connect(it[0])
+                            } else {
+                                deviceMenuExpanded = true
+                            }
+                        }
                     }
                 ) {
                     Icon(
@@ -286,6 +284,25 @@ fun TopBar(snackbarHostState: SnackbarHostStateMMD, modifier: Modifier = Modifie
                         contentDescription = "back",
                         modifier = modifier.size(32.dp)
                     )
+                }
+                DropdownMenuMMD(
+                    expanded = deviceMenuExpanded,
+                    onDismissRequest = { deviceMenuExpanded = false }
+                ) {
+                    getDevices(context).let { devices ->
+                        devices.forEachIndexed { index, device ->
+                            DropdownMenuItemMMD(
+                                text = { TextMMD(text = device.name) },
+                                onClick = {
+                                    connect(device)
+                                    deviceMenuExpanded = false
+                                }
+                            )
+                            if (index < devices.size - 1) {
+                                DashedDivider()
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -315,7 +332,7 @@ fun TopBar(snackbarHostState: SnackbarHostStateMMD, modifier: Modifier = Modifie
 fun ButtonRow() {
     Row(
         modifier = Modifier
-            .padding(vertical = 16.dp)
+            .padding(vertical = 8.dp)
             .fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceEvenly
@@ -410,21 +427,6 @@ fun OptionsMenu() {
                 StorageDropDownMenuItem(it) { expanded = false }
             }
             DashedDivider()
-//            DropdownMenuItemMMD(
-//                text = { Text("Favorites") },
-//                onClick = { expanded = false },
-//                leadingIcon = {
-//                    Icon(Icons.Default.Star, contentDescription = "favorites")
-//                },
-//                trailingIcon = {
-//                    SwitchMMD(
-//                        false,
-//                        onCheckedChange = {
-//
-//                        }
-//                    )
-//                }
-//            )
             DropdownMenuItemMMD(
                 text = { TextMMD("Shuffle") },
                 onClick = { expanded = false },
