@@ -43,6 +43,10 @@ fun initPlayer(context: Context): Player {
                 }
             }
         }
+
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            playing.value = isPlaying
+        }
     })
 
     player.prepare()
@@ -65,7 +69,6 @@ fun play(item: FileItem) {
             .map { MediaItem.fromUri(Uri.fromFile(it.path)) })
     repeat(mainList.indexOf(item)) { player.seekToNextMediaItem() }
     player.play()
-    playing.value = true
 }
 
 fun highlightCurrentlyPlaying(index: Int, isPlaying: Boolean) {

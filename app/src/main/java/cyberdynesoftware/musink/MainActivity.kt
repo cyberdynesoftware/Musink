@@ -1,14 +1,18 @@
 package cyberdynesoftware.musink
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.annotation.RequiresPermission
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -59,9 +63,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import androidx.core.app.ActivityCompat.requestPermissions
+import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.media3.common.Player
+import androidx.media3.session.MediaSession
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.lazy.LazyColumnMMD
 import com.mudita.mmd.components.menus.DropdownMenuItemMMD
@@ -77,6 +84,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 lateinit var player: Player
+lateinit var mediaSession: MediaSession
 
 class MainActivity : ComponentActivity() {
 
@@ -84,8 +92,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         player = initPlayer(baseContext)
+        mediaSession = MediaSession.Builder(baseContext, player).build()
         checkStoragePermission()
         navTo(startingDirectory())
+        checkBluetoothPermission()
         enableEdgeToEdge()
         setContent {
             MusinkTheme {
@@ -102,6 +112,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+
+    fun checkBluetoothPermission() {
+        Manifest.permission.BLUETOOTH_CONNECT.let {
+            val permission = ContextCompat.checkSelfPermission(this, it)
+            if (permission == PackageManager.PERMISSION_GRANTED) {
+                initBluetooth(baseContext)
+            } else {
+                requestPermissions(this, arrayOf(it), 17)
+            }
+        }
+    }
+
     fun startingDirectory(): File {
         val home = getSharedPreferences("prefs", MODE_PRIVATE).getString("home", null)
         return if (home == null) {
@@ -109,6 +131,23 @@ class MainActivity : ComponentActivity() {
         } else {
             File(home)
         }
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String?>,
+        grantResults: IntArray,
+        deviceId: Int
+    ) {
+        if (requestCode == 17 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            initBluetooth(baseContext)
+        }
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        display("keyCode: $keyCode")
+        return super.onKeyDown(keyCode, event)
     }
 }
 
@@ -307,10 +346,8 @@ fun ButtonRow() {
             onClick = {
                 if (player.isPlaying) {
                     player.pause()
-                    playing.value = false
                 } else {
                     player.play()
-                    playing.value = true
                 }
             }
         ) {
