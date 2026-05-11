@@ -60,6 +60,7 @@ fun fileIndex(songIndex: Int): Int {
 }
 
 fun play(item: FileItem) {
+    previousMediaItemIndex = -1
     player.setMediaItems(
         mainList
             .filter { it.isAudio }
