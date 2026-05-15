@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothA2dp
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothHeadset
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.content.Context
@@ -11,16 +12,20 @@ import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import androidx.core.content.ContextCompat.getSystemService
 import java.lang.reflect.InvocationTargetException
+import java.lang.reflect.Method
 
-lateinit var profileProxy: BluetoothA2dp
+var headsetProfileProxy: BluetoothHeadset? = null
+var a2dpProfileProxy: BluetoothA2dp? = null
 
 fun initBluetooth(context: Context) {
-    getSystemService(context, BluetoothManager::class.java)?.let {
+    getSystemService(context, BluetoothManager::class.java)?.let { blMan ->
         val profileListener = object : BluetoothProfile.ServiceListener {
             override fun onServiceConnected(profile: Int, proxy: BluetoothProfile?) {
+                if (profile == BluetoothProfile.HEADSET) {
+                    headsetProfileProxy = proxy as BluetoothHeadset
+                }
                 if (profile == BluetoothProfile.A2DP) {
-                    profileProxy = proxy as BluetoothA2dp
-                    player.play()
+                    a2dpProfileProxy = proxy as BluetoothA2dp
                 }
             }
 
@@ -31,14 +36,15 @@ fun initBluetooth(context: Context) {
             }
         }
 
-        it.adapter.getProfileProxy(context, profileListener, BluetoothProfile.A2DP)
+        blMan.adapter.getProfileProxy(context, profileListener, BluetoothProfile.A2DP)
+        blMan.adapter.getProfileProxy(context, profileListener, BluetoothProfile.HEADSET)
     }
 }
 
 fun getDevices(context: Context): List<BluetoothDevice> {
-    getSystemService(context, BluetoothManager::class.java)?.let {
-        if (checkBluetoothPermission(context) && it.adapter.isEnabled) {
-            return it.adapter.bondedDevices.toList()
+    getSystemService(context, BluetoothManager::class.java)?.let { blMan ->
+        if (checkBluetoothPermission(context) && blMan.adapter.isEnabled) {
+            return blMan.adapter.bondedDevices.toList()
         }
     }
     return emptyList()
@@ -54,12 +60,12 @@ fun checkBluetoothPermission(context: Context): Boolean {
 @SuppressLint("DiscouragedPrivateApi")
 fun connect(device: BluetoothDevice) {
     try {
-        val connect =
-            BluetoothA2dp::class.java.getDeclaredMethod("connect", BluetoothDevice::class.java)
-        if (!connect.isAccessible) {
-            connect.isAccessible = true
+        a2dpProfileProxy?.let {
+            getA2dpProfileConnectMethod().invoke(it, device)
         }
-        connect.invoke(profileProxy, device)
+        headsetProfileProxy?.let {
+            getHeadsetProfileConnectMethod().invoke(it, device)
+        }
     } catch (e: NoSuchMethodException) {
         e.printStackTrace()
     } catch (e: InvocationTargetException) {
@@ -67,4 +73,20 @@ fun connect(device: BluetoothDevice) {
     } catch (e: IllegalAccessException) {
         e.printStackTrace()
     }
+}
+
+@SuppressLint("DiscouragedPrivateApi")
+fun getA2dpProfileConnectMethod(): Method {
+    return BluetoothA2dp::class.java.getDeclaredMethod("connect", BluetoothDevice::class.java)
+        .apply {
+            isAccessible = true
+        }
+}
+
+@SuppressLint("DiscouragedPrivateApi")
+fun getHeadsetProfileConnectMethod(): Method {
+    return BluetoothHeadset::class.java.getDeclaredMethod("connect", BluetoothDevice::class.java)
+        .apply {
+            isAccessible = true
+        }
 }

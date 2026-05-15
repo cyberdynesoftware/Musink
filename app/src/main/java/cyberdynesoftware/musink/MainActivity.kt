@@ -112,9 +112,8 @@ class MainActivity : ComponentActivity() {
 
 
     fun checkBluetoothPermission() {
-        if (checkBluetoothPermission(baseContext)) {
-            initBluetooth(baseContext)
-        } else {
+        initBluetooth(baseContext)
+        if (!checkBluetoothPermission(baseContext)) {
             requestPermissions(this, arrayOf(Manifest.permission.BLUETOOTH_CONNECT), 17)
         }
     }
@@ -134,7 +133,9 @@ class MainActivity : ComponentActivity() {
         grantResults: IntArray,
         deviceId: Int
     ) {
+        display("onRequestPermissionResult")
         if (requestCode == 17 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            display("granted")
             initBluetooth(baseContext)
         }
     }
