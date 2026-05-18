@@ -24,6 +24,7 @@ fun initPlayer(context: Context): Player {
     player.addListener(object : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             if (currentSongPath.value == currentPath.value) {
+                display("previous: $previousMediaItemIndex")
                 if (previousMediaItemIndex >= 0) {
                     highlightCurrentlyPlaying(fileIndex(previousMediaItemIndex), false)
                 }
@@ -33,9 +34,7 @@ fun initPlayer(context: Context): Player {
                     highlightCurrentlyPlaying(it, true)
                     if (lastVisibleItemIndex(listState.firstVisibleItemIndex) < it ||
                         it < listState.firstVisibleItemIndex) {
-                        CoroutineScope(Dispatchers.Main).launch {
-                            listState.scrollToItem(it)
-                        }
+                        scrollToItem(it)
                     }
                 }
             }
@@ -50,6 +49,12 @@ fun initPlayer(context: Context): Player {
     return player
 }
 
+fun scrollToItem(index: Int) {
+    CoroutineScope(Dispatchers.Main).launch {
+        listState.scrollToItem(index)
+    }
+}
+
 fun lastVisibleItemIndex(firstVisibleItemIndex: Int): Int {
     val numberOfVisibleItems = 8 // on my Kompakt
     return firstVisibleItemIndex + numberOfVisibleItems - 1
@@ -59,13 +64,16 @@ fun fileIndex(songIndex: Int): Int {
     return mainList.indexOf(mainList.filter { it.isAudio }[songIndex])
 }
 
-fun play(item: FileItem) {
+fun updatePlaylist(item: FileItem) {
     previousMediaItemIndex = -1
     player.setMediaItems(
         mainList
             .filter { it.isAudio }
             .map { MediaItem.fromUri(Uri.fromFile(it.path)) })
-    repeat(mainList.indexOf(item)) { player.seekToNextMediaItem() }
+}
+
+fun play(item: FileItem) {
+    player.seekToDefaultPosition(mainList.filter { it.isAudio }.indexOf(item))
     player.play()
 }
 

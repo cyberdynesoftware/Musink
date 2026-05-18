@@ -150,6 +150,7 @@ fun navTo(path: File) {
     currentPath.value = path
     mainList.clear()
     mainList.addAll(listDirectory(path))
+    scrollToItem(0)
 
     if (currentSongPath.value == path) {
         highlightCurrentlyPlaying(fileIndex(player.currentMediaItemIndex), true)
@@ -208,8 +209,13 @@ fun MainContent() {
                                     if (item.path.isDirectory) {
                                         navTo(item.path)
                                     } else if (item.isAudio) {
-                                        currentSongPath.value = currentPath.value
-                                        play(item)
+                                        if (currentSongPath.value == currentPath.value) {
+                                            play(item)
+                                        } else {
+                                            currentSongPath.value = currentPath.value
+                                            updatePlaylist(item)
+                                            play(item)
+                                        }
                                     }
                                 },
                                 onLongClick = {
