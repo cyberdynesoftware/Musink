@@ -46,7 +46,6 @@ class PlaybackService : MediaSessionService() {
         player.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 if (currentlyPlayingDirectory.value == currentDirectory.value) {
-                    display("previous: $previousMediaItemIndex")
                     if (previousMediaItemIndex >= 0) {
                         highlightCurrentlyPlaying(fileItemIndex(previousMediaItemIndex), false)
                     }

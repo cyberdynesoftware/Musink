@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">MusinK</string>
+    <string name="shuffle">Shuffle</string>
+    <string name="set_home">Set as home</string>
+    <string name="home_not_set">Home not set. Set with a long click.</string>
+    <string name="internal_storage">Internal Storage</string>
 </resources>

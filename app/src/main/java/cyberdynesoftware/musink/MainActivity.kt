@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -116,6 +117,10 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+fun display(msg: String) {
+    Log.d("--- MusinK ---", msg)
+}
+
 val currentDirectory = mutableStateOf(File("/"))
 val currentlyPlayingDirectory = mutableStateOf(File("/"))
 val playing = mutableStateOf(false)
@@ -192,16 +197,16 @@ fun OptionsMenu() {
             onDismissRequest = { expanded = false },
             offset = DpOffset(x = (-8).dp, y = 0.dp)
         ) {
-            StorageDropDownMenuItem(internalStorage()) { expanded = false }
+            StorageDropDownMenuItem(internalStorage(stringResource(R.string.internal_storage))) { expanded = false }
             removableStorage(LocalContext.current).forEach {
                 StorageDropDownMenuItem(it) { expanded = false }
             }
             DashedDivider()
             DropdownMenuItemMMD(
-                text = { TextMMD("Shuffle") },
+                text = { TextMMD(stringResource(R.string.shuffle)) },
                 onClick = { expanded = false },
                 leadingIcon = {
-                    Icon(Icons.Default.Shuffle, contentDescription = "shuffle")
+                    Icon(Icons.Default.Shuffle, contentDescription = stringResource(R.string.shuffle))
                 },
                 trailingIcon = {
                     SwitchMMD(

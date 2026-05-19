@@ -31,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -51,9 +52,9 @@ data class FileItem(
     var fontWeight: FontWeight?
 )
 
-fun internalStorage(): FileItem {
+fun internalStorage(label: String): FileItem {
     return FileItem(
-        "Internal Storage",
+        label,
         Icons.Default.Storage,
         Environment.getExternalStorageDirectory(),
         false,
@@ -113,10 +114,6 @@ fun isAudioFile(file: File): Boolean {
     return mimeType?.startsWith("audio") == true
 }
 
-fun display(msg: String) {
-    Log.d("--- MusinK ---", msg)
-}
-
 @Composable
 fun CurrentDirectoryContent(modifier: Modifier) {
     val prefs = LocalContext.current.getSharedPreferences("prefs", Context.MODE_PRIVATE)
@@ -167,7 +164,7 @@ fun CurrentDirectoryContent(modifier: Modifier) {
                     onDismissRequest = { showContextMenu = false },
                 ) {
                     DropdownMenuItemMMD(
-                        text = { TextMMD("Set as home") },
+                        text = { TextMMD(stringResource(R.string.set_home)) },
                         onClick = {
                             showContextMenu = false
                             prefs.edit {
@@ -191,11 +188,13 @@ fun CurrentDirectoryContent(modifier: Modifier) {
 fun HomeButton(modifier: Modifier, snackbarHostState: SnackbarHostStateMMD) {
     val scope = rememberCoroutineScope()
     val prefs = LocalContext.current.getSharedPreferences("prefs", Context.MODE_PRIVATE)
+    val homeNotSet = stringResource(R.string.home_not_set)
+
     IconButton(
         onClick = {
             val home = prefs.getString("home", null)
             if (home == null) {
-                scope.launch { snackbarHostState.showSnackbar("Home not set. Set with a long click.") }
+                scope.launch { snackbarHostState.showSnackbar(homeNotSet) }
             } else {
                 navTo(File(home))
             }
