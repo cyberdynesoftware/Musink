@@ -50,6 +50,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.navigation.runtime.ktx)
+    implementation(libs.androidx.ui)
     implementation(libs.media3.session)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

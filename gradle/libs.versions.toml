@@ -13,6 +13,7 @@ media3Exoplayer = "1.10.0"
 mmd = "1.0.1"
 navigationRuntimeKtx = "2.9.8"
 media3Session = "1.10.0"
+ui = "1.11.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -37,6 +38,7 @@ androidx-navigation-runtime-ktx = { group = "androidx.navigation", name = "navig
 compose-material-icons = { group = "androidx.compose.material", name = "material-icons-extended" }
 mmd = { module = "com.mudita:MMD", version.ref = "mmd" }
 media3-session = { group = "androidx.media3", name = "media3-session", version.ref = "media3Session" }
+androidx-ui = { group = "androidx.compose.ui", name = "ui", version.ref = "ui" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

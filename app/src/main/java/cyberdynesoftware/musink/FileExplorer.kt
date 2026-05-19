@@ -6,14 +6,41 @@ import android.os.Environment
 import android.os.storage.StorageManager
 import android.util.Log
 import android.webkit.MimeTypeMap
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material.icons.filled.AudioFile
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.SdCard
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.core.content.edit
+import com.mudita.mmd.components.lazy.LazyColumnMMD
+import com.mudita.mmd.components.menus.DropdownMenuItemMMD
+import com.mudita.mmd.components.menus.DropdownMenuMMD
+import com.mudita.mmd.components.snackbar.SnackbarHostStateMMD
+import com.mudita.mmd.components.text.TextMMD
+import kotlinx.coroutines.launch
 import java.io.File
 
 data class FileItem(
@@ -88,4 +115,113 @@ fun isAudioFile(file: File): Boolean {
 
 fun display(msg: String) {
     Log.d("--- MusinK ---", msg)
+}
+
+@Composable
+fun CurrentDirectoryContent(modifier: Modifier) {
+    val prefs = LocalContext.current.getSharedPreferences("prefs", Context.MODE_PRIVATE)
+    var showContextMenu by remember { mutableStateOf(false) }
+    var selectedIndex by remember { mutableIntStateOf(-1) }
+
+    LazyColumnMMD(
+        modifier = modifier,
+        state = mainListState
+    ) {
+        itemsIndexed(currentDirectoryContentsList) { index, item ->
+            Row(
+                modifier = Modifier
+                    .padding(12.dp)
+                    .fillMaxWidth()
+                    .combinedClickable(
+                        onClick = {
+                            if (item.path.isDirectory) {
+                                navTo(item.path)
+                            } else if (item.isAudio) {
+                                if (currentlyPlayingDirectory.value == currentDirectory.value) {
+                                    play(item)
+                                } else {
+                                    currentlyPlayingDirectory.value = currentDirectory.value
+                                    updatePlaylist(currentDirectoryContentsList)
+                                    play(item)
+                                }
+                            }
+                        },
+                        onLongClick = {
+                            if (item.path.isDirectory) {
+                                selectedIndex = index
+                                showContextMenu = true
+                            }
+                        }
+                    )
+            ) {
+                Icon(item.icon, contentDescription = "icon", Modifier.padding(end = 8.dp))
+                TextMMD(
+                    item.label,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    softWrap = false,
+                    fontWeight = item.fontWeight
+                )
+                DropdownMenuMMD(
+                    expanded = showContextMenu && selectedIndex == index,
+                    onDismissRequest = { showContextMenu = false },
+                ) {
+                    DropdownMenuItemMMD(
+                        text = { TextMMD("Set as home") },
+                        onClick = {
+                            showContextMenu = false
+                            prefs.edit {
+                                putString("home", item.path.path)
+                            }
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Default.Home, contentDescription = "home")
+                        }
+                    )
+                }
+            }
+            if (index < currentDirectoryContentsList.size - 1) {
+                DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun HomeButton(modifier: Modifier, snackbarHostState: SnackbarHostStateMMD) {
+    val scope = rememberCoroutineScope()
+    val prefs = LocalContext.current.getSharedPreferences("prefs", Context.MODE_PRIVATE)
+    IconButton(
+        onClick = {
+            val home = prefs.getString("home", null)
+            if (home == null) {
+                scope.launch { snackbarHostState.showSnackbar("Home not set. Set with a long click.") }
+            } else {
+                navTo(File(home))
+            }
+        }
+    ) {
+        Icon(
+            imageVector = Icons.Default.Home,
+            contentDescription = "home",
+            modifier = modifier.size(32.dp)
+        )
+    }
+}
+
+@Composable
+fun StorageDropDownMenuItem(it: FileItem, callback: () -> Unit) {
+    DropdownMenuItemMMD(
+        text = { TextMMD(it.label) },
+        onClick = {
+            callback()
+            navTo(it.path)
+        },
+        leadingIcon = {
+            Icon(
+                it.icon,
+                it.label
+            )
+        }
+    )
 }

@@ -9,8 +9,26 @@ import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.content.Context
 import android.content.pm.PackageManager
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Headphones
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.ContextCompat.getSystemService
+import com.mudita.mmd.components.menus.DropdownMenuItemMMD
+import com.mudita.mmd.components.menus.DropdownMenuMMD
+import com.mudita.mmd.components.text.TextMMD
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 
@@ -89,4 +107,50 @@ fun getHeadsetProfileConnectMethod(): Method {
         .apply {
             isAccessible = true
         }
+}
+
+@SuppressLint("MissingPermission") // In case of missing permission the bluetooth device list is empty.
+@Composable
+fun HeadphoneButton(modifier: Modifier) {
+    var deviceMenuExpanded by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    Box(modifier = modifier.padding(4.dp)) {
+        IconButton(
+            onClick = {
+                getDevices(context).let {
+                    if (it.size == 1) {
+                        connect(it[0])
+                    } else {
+                        deviceMenuExpanded = true
+                    }
+                }
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Default.Headphones,
+                contentDescription = "back",
+                modifier = modifier.size(32.dp)
+            )
+        }
+        DropdownMenuMMD(
+            expanded = deviceMenuExpanded,
+            onDismissRequest = { deviceMenuExpanded = false }
+        ) {
+            getDevices(context).let { devices ->
+                devices.forEachIndexed { index, device ->
+                    DropdownMenuItemMMD(
+                        text = { TextMMD(text = device.name) },
+                        onClick = {
+                            connect(device)
+                            deviceMenuExpanded = false
+                        }
+                    )
+                    if (index < devices.size - 1) {
+                        DashedDivider()
+                    }
+                }
+            }
+        }
+    }
 }

@@ -1,9 +1,7 @@
 package cyberdynesoftware.musink
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.os.Environment
@@ -13,31 +11,18 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Forward5
-import androidx.compose.material.icons.filled.Headphones
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Replay5
 import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,32 +30,26 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat.requestPermissions
-import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.MoreExecutors
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
-import com.mudita.mmd.components.lazy.LazyColumnMMD
 import com.mudita.mmd.components.menus.DropdownMenuItemMMD
 import com.mudita.mmd.components.menus.DropdownMenuMMD
 import com.mudita.mmd.components.snackbar.SnackbarHostMMD
@@ -80,7 +59,6 @@ import com.mudita.mmd.components.text.TextMMD
 import com.mudita.mmd.components.top_app_bar.TopAppBarDefaultsMMD
 import com.mudita.mmd.components.top_app_bar.TopAppBarMMD
 import cyberdynesoftware.musink.ui.theme.MusinkTheme
-import kotlinx.coroutines.launch
 import java.io.File
 
 var player: Player? = null
@@ -90,7 +68,6 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        //player = initPlayer(baseContext)
         checkStoragePermission()
         navTo(startingDirectory())
         initBluetoothProfileProxy(baseContext)
@@ -139,20 +116,16 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-val currentPath = mutableStateOf(File("/"))
-val currentSongPath = mutableStateOf(File("/"))
+val currentDirectory = mutableStateOf(File("/"))
+val currentlyPlayingDirectory = mutableStateOf(File("/"))
 val playing = mutableStateOf(false)
-val mainList = mutableStateListOf<FileItem>()
+val currentDirectoryContentsList = mutableStateListOf<FileItem>()
 
 fun navTo(path: File) {
-    currentPath.value = path
-    mainList.clear()
-    mainList.addAll(listDirectory(path))
+    currentDirectory.value = path
+    currentDirectoryContentsList.clear()
+    currentDirectoryContentsList.addAll(listDirectory(path))
     scrollToItem(0)
-//
-//    if (currentSongPath.value == path) {
-//        highlightCurrentlyPlaying(fileItemIndex(player?.currentMediaItemIndex), true)
-//    }
 }
 
 val mainListState = LazyListState()
@@ -160,15 +133,12 @@ val mainListState = LazyListState()
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainContent() {
-    val prefs = LocalContext.current.getSharedPreferences("prefs", Context.MODE_PRIVATE)
-    var showContextMenu by remember { mutableStateOf(false) }
-    var selectedIndex by remember { mutableIntStateOf(-1) }
     val snackbarHostState = remember { SnackbarHostStateMMD() }
 
     BackHandler(true) {
-        currentPath.value.parentFile?.let {
-            if (it.canRead()) {
-                navTo(it)
+        currentDirectory.value.parentFile?.let { parent ->
+            if (parent.canRead()) {
+                navTo(parent)
             }
         }
     }
@@ -183,234 +153,29 @@ fun MainContent() {
                 .padding(innerPadding)
                 .fillMaxSize()
         ) {
-//            TextMMD(
-//                modifier = Modifier
-//                    .consumeWindowInsets(innerPadding)
-//                    .imePadding(),
-//                text = currentPath.value.path,
-//                maxLines = 1
-//            )
-            LazyColumnMMD(
-                modifier = Modifier
-                    .consumeWindowInsets(innerPadding)
-                    .weight(1f)
-                    .imePadding(),
-                state = mainListState
-            ) {
-                itemsIndexed(mainList) { index, item ->
-                    Row(
-                        modifier = Modifier
-                            .padding(12.dp)
-                            .fillMaxWidth()
-                            .combinedClickable(
-                                onClick = {
-                                    if (item.path.isDirectory) {
-                                        navTo(item.path)
-                                    } else if (item.isAudio) {
-                                        if (currentSongPath.value == currentPath.value) {
-                                            play(item)
-                                        } else {
-                                            currentSongPath.value = currentPath.value
-                                            updatePlaylist(mainList)
-                                            play(item)
-                                        }
-                                    }
-                                },
-                                onLongClick = {
-                                    if (item.path.isDirectory) {
-                                        selectedIndex = index
-                                        showContextMenu = true
-                                    }
-                                }
-                            )
-                    ) {
-                        Icon(item.icon, contentDescription = "icon", Modifier.padding(end = 8.dp))
-                        TextMMD(
-                            item.label,
-                            textAlign = TextAlign.Center,
-                            maxLines = 1,
-                            softWrap = false,
-                            fontWeight = item.fontWeight
-                        )
-                        DropdownMenuMMD(
-                            expanded = showContextMenu && selectedIndex == index,
-                            onDismissRequest = { showContextMenu = false },
-                        ) {
-                            DropdownMenuItemMMD(
-                                text = { TextMMD("Set as home") },
-                                onClick = {
-                                    showContextMenu = false
-                                    prefs.edit {
-                                        putString("home", item.path.path)
-                                    }
-                                },
-                                leadingIcon = {
-                                    Icon(Icons.Default.Home, contentDescription = "home")
-                                }
-                            )
-                        }
-                    }
-                    if (index < mainList.size - 1) {
-                        DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                    }
-                }
-            }
+            CurrentDirectoryContent(modifier = Modifier
+                .consumeWindowInsets(innerPadding)
+                .weight(1f)
+                .imePadding())
             HorizontalDividerMMD(color = TopAppBarDefaultsMMD.dividerColor, thickness = 1.dp)
-            ButtonRow()
+            PlayerControlButtonRow()
         }
     }
 }
 
-@SuppressLint("MissingPermission") // In case of a missing permission the list is empty.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TopBar(snackbarHostState: SnackbarHostStateMMD, modifier: Modifier = Modifier) {
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val prefs = LocalContext.current.getSharedPreferences("prefs", Context.MODE_PRIVATE)
-    var deviceMenuExpanded by remember { mutableStateOf(false) }
     TopAppBarMMD(
         title = { TextMMD(stringResource(R.string.app_name)) },
-        navigationIcon = {
-            Box(modifier = modifier.padding(4.dp)) {
-                IconButton(
-                    onClick = {
-                        getDevices(context).let {
-                            if (it.size == 1) {
-                                connect(it[0])
-                            } else {
-                                deviceMenuExpanded = true
-                            }
-                        }
-                    }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Headphones,
-                        contentDescription = "back",
-                        modifier = modifier.size(32.dp)
-                    )
-                }
-                DropdownMenuMMD(
-                    expanded = deviceMenuExpanded,
-                    onDismissRequest = { deviceMenuExpanded = false }
-                ) {
-                    getDevices(context).let { devices ->
-                        devices.forEachIndexed { index, device ->
-                            DropdownMenuItemMMD(
-                                text = { TextMMD(text = device.name) },
-                                onClick = {
-                                    connect(device)
-                                    deviceMenuExpanded = false
-                                }
-                            )
-                            if (index < devices.size - 1) {
-                                DashedDivider()
-                            }
-                        }
-                    }
-                }
-            }
-        },
+        navigationIcon = { HeadphoneButton(modifier) },
         actions = {
-            IconButton(
-                onClick = {
-                    val home = prefs.getString("home", null)
-                    if (home == null) {
-                        scope.launch { snackbarHostState.showSnackbar("Home not set. Set with a long click.") }
-                    } else {
-                        navTo(File(home))
-                    }
-                }
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Home,
-                    contentDescription = "home",
-                    modifier = modifier.size(32.dp)
-                )
-            }
+            HomeButton(modifier, snackbarHostState)
             OptionsMenu()
         }
     )
 }
 
-@Composable
-fun ButtonRow() {
-    Row(
-        modifier = Modifier
-            .padding(vertical = 8.dp)
-            .fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceEvenly
-    ) {
-        IconButton(
-            onClick = {
-                player?.seekToPreviousMediaItem()
-            }
-        ) {
-            Icon(
-                imageVector = Icons.Default.SkipPrevious,
-                contentDescription = "previous",
-                modifier = Modifier.size(32.dp)
-            )
-        }
-        IconButton(
-            onClick = {
-                player?.seekBack()
-            }
-        ) {
-            Icon(
-                imageVector = Icons.Default.Replay5,
-                contentDescription = "replay",
-                modifier = Modifier.size(32.dp)
-            )
-        }
-        IconButton(
-            onClick = {
-                if (player?.isPlaying == true) {
-                    player?.pause()
-                } else {
-                    player?.play()
-                }
-            }
-        ) {
-            if (playing.value) {
-                Icon(
-                    imageVector = Icons.Default.Pause,
-                    contentDescription = "play",
-                    modifier = Modifier.size(32.dp)
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Default.PlayArrow,
-                    contentDescription = "play",
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-        }
-        IconButton(
-            onClick = {
-                player?.seekForward()
-            }
-        ) {
-            Icon(
-                imageVector = Icons.Default.Forward5,
-                contentDescription = "forward",
-                modifier = Modifier.size(32.dp)
-            )
-        }
-        IconButton(
-            onClick = {
-                player?.seekToNextMediaItem()
-            }
-        ) {
-            Icon(
-                imageVector = Icons.Default.SkipNext,
-                contentDescription = "next",
-                modifier = Modifier.size(32.dp)
-            )
-        }
-    }
-}
 
 @Composable
 fun OptionsMenu() {
@@ -450,23 +215,6 @@ fun OptionsMenu() {
             )
         }
     }
-}
-
-@Composable
-fun StorageDropDownMenuItem(it: FileItem, callback: () -> Unit) {
-    DropdownMenuItemMMD(
-        text = { TextMMD(it.label) },
-        onClick = {
-            callback()
-            navTo(it.path)
-        },
-        leadingIcon = {
-            Icon(
-                it.icon,
-                it.label
-            )
-        }
-    )
 }
 
 @Composable

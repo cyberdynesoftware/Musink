@@ -1,11 +1,27 @@
 package cyberdynesoftware.musink
 
-import android.content.Context
 import android.net.Uri
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AudioFile
 import androidx.compose.material.icons.filled.Audiotrack
+import androidx.compose.material.icons.filled.Forward5
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Replay5
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -29,7 +45,7 @@ class PlaybackService : MediaSessionService() {
 
         player.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                if (currentSongPath.value == currentPath.value) {
+                if (currentlyPlayingDirectory.value == currentDirectory.value) {
                     display("previous: $previousMediaItemIndex")
                     if (previousMediaItemIndex >= 0) {
                         highlightCurrentlyPlaying(fileItemIndex(previousMediaItemIndex), false)
@@ -69,43 +85,6 @@ class PlaybackService : MediaSessionService() {
     }
 }
 
-//class PlayerListener: Player.Listener {
-//    override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-//        if (currentSongPath.value == currentPath.value) {
-//            display("previous: $previousMediaItemIndex")
-//            if (previousMediaItemIndex >= 0) {
-//                highlightCurrentlyPlaying(fileItemIndex(previousMediaItemIndex), false)
-//            }
-//            previousMediaItemIndex = player.currentMediaItemIndex
-//
-//            fileItemIndex(player.currentMediaItemIndex).let {
-//                highlightCurrentlyPlaying(it, true)
-//                if (lastVisibleItemIndex(mainListState.firstVisibleItemIndex) < it ||
-//                    it < mainListState.firstVisibleItemIndex
-//                ) {
-//                    scrollToItem(it)
-//                }
-//            }
-//        }
-//    }
-//
-//    override fun onIsPlayingChanged(isPlaying: Boolean) {
-//        playing.value = isPlaying
-//    }
-//}
-//
-//fun initPlayer(context: Context): Player {
-//    val player = ExoPlayer.Builder(context)
-//        .setSeekBackIncrementMs(5000)
-//        .setSeekForwardIncrementMs(5000)
-//        .build()
-//
-//    player.addListener(PlayerListener())
-//
-//    player.prepare()
-//    return player
-//}
-
 fun scrollToItem(index: Int) {
     CoroutineScope(Dispatchers.Main).launch {
         mainListState.scrollToItem(index)
@@ -118,7 +97,7 @@ fun lastVisibleItemIndex(firstVisibleItemIndex: Int): Int {
 }
 
 fun fileItemIndex(mediaItemIndex: Int): Int {
-    return mainList.indexOf(mainList.filter { it.isAudio }[mediaItemIndex])
+    return currentDirectoryContentsList.indexOf(currentDirectoryContentsList.filter { it.isAudio }[mediaItemIndex])
 }
 
 fun updatePlaylist(items: List<FileItem>) {
@@ -131,19 +110,98 @@ fun updatePlaylist(items: List<FileItem>) {
 }
 
 fun play(item: FileItem) {
-    player?.seekToDefaultPosition(mainList.filter { it.isAudio }.indexOf(item))
+    player?.seekToDefaultPosition(currentDirectoryContentsList.filter { it.isAudio }.indexOf(item))
     player?.play()
 }
 
 fun highlightCurrentlyPlaying(index: Int, isPlaying: Boolean) {
-    if (0 <= index && index < mainList.size) {
-        val item = mainList[index]
-        mainList[index] = FileItem(
+    if (0 <= index && index < currentDirectoryContentsList.size) {
+        val item = currentDirectoryContentsList[index]
+        currentDirectoryContentsList[index] = FileItem(
             item.label,
             if (isPlaying) Icons.Default.Audiotrack else Icons.Default.AudioFile,
             item.path,
             true,
             if (isPlaying) FontWeight.Bold else null
         )
+    }
+}
+
+@Composable
+fun PlayerControlButtonRow() {
+    Row(
+        modifier = Modifier
+            .padding(vertical = 8.dp)
+            .fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceEvenly
+    ) {
+        IconButton(
+            onClick = {
+                player?.seekToPreviousMediaItem()
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Default.SkipPrevious,
+                contentDescription = "previous",
+                modifier = Modifier.size(32.dp)
+            )
+        }
+        IconButton(
+            onClick = {
+                player?.seekBack()
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Default.Replay5,
+                contentDescription = "replay",
+                modifier = Modifier.size(32.dp)
+            )
+        }
+        IconButton(
+            onClick = {
+                if (player?.isPlaying == true) {
+                    player?.pause()
+                } else {
+                    player?.play()
+                }
+            }
+        ) {
+            if (playing.value) {
+                Icon(
+                    imageVector = Icons.Default.Pause,
+                    contentDescription = "play",
+                    modifier = Modifier.size(32.dp)
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = "play",
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+        }
+        IconButton(
+            onClick = {
+                player?.seekForward()
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Default.Forward5,
+                contentDescription = "forward",
+                modifier = Modifier.size(32.dp)
+            )
+        }
+        IconButton(
+            onClick = {
+                player?.seekToNextMediaItem()
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Default.SkipNext,
+                contentDescription = "next",
+                modifier = Modifier.size(32.dp)
+            )
+        }
     }
 }
