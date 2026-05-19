@@ -9,11 +9,65 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.MediaSession
+import androidx.media3.session.MediaSessionService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 var previousMediaItemIndex = -1
+
+class PlaybackService : MediaSessionService() {
+    var mediaSession: MediaSession? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        val player = ExoPlayer.Builder(this)
+            .setSeekBackIncrementMs(5000)
+            .setSeekForwardIncrementMs(5000)
+            .build()
+        player.addListener(PlayerListener())
+        mediaSession = MediaSession.Builder(this, player).build()
+    }
+
+    override fun onDestroy() {
+        mediaSession?.run {
+            player.release()
+            release()
+            mediaSession = null
+        }
+        super.onDestroy()
+    }
+
+    override fun onGetSession(p0: MediaSession.ControllerInfo): MediaSession? {
+        return mediaSession
+    }
+}
+
+class PlayerListener: Player.Listener {
+    override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+        if (currentSongPath.value == currentPath.value) {
+            display("previous: $previousMediaItemIndex")
+            if (previousMediaItemIndex >= 0) {
+                highlightCurrentlyPlaying(fileIndex(previousMediaItemIndex), false)
+            }
+            previousMediaItemIndex = player.currentMediaItemIndex
+
+            fileIndex(player.currentMediaItemIndex).let {
+                highlightCurrentlyPlaying(it, true)
+                if (lastVisibleItemIndex(listState.firstVisibleItemIndex) < it ||
+                    it < listState.firstVisibleItemIndex
+                ) {
+                    scrollToItem(it)
+                }
+            }
+        }
+    }
+
+    override fun onIsPlayingChanged(isPlaying: Boolean) {
+        playing.value = isPlaying
+    }
+}
 
 fun initPlayer(context: Context): Player {
     val player = ExoPlayer.Builder(context)
@@ -21,29 +75,7 @@ fun initPlayer(context: Context): Player {
         .setSeekForwardIncrementMs(5000)
         .build()
 
-    player.addListener(object : Player.Listener {
-        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            if (currentSongPath.value == currentPath.value) {
-                display("previous: $previousMediaItemIndex")
-                if (previousMediaItemIndex >= 0) {
-                    highlightCurrentlyPlaying(fileIndex(previousMediaItemIndex), false)
-                }
-                previousMediaItemIndex = player.currentMediaItemIndex
-
-                fileIndex(player.currentMediaItemIndex).let {
-                    highlightCurrentlyPlaying(it, true)
-                    if (lastVisibleItemIndex(listState.firstVisibleItemIndex) < it ||
-                        it < listState.firstVisibleItemIndex) {
-                        scrollToItem(it)
-                    }
-                }
-            }
-        }
-
-        override fun onIsPlayingChanged(isPlaying: Boolean) {
-            playing.value = isPlaying
-        }
-    })
+    player.addListener(PlayerListener())
 
     player.prepare()
     return player
