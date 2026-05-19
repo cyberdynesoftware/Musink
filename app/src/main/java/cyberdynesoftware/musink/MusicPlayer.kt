@@ -26,7 +26,32 @@ class PlaybackService : MediaSessionService() {
             .setSeekBackIncrementMs(5000)
             .setSeekForwardIncrementMs(5000)
             .build()
-        player.addListener(PlayerListener())
+
+        player.addListener(object : Player.Listener {
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                if (currentSongPath.value == currentPath.value) {
+                    display("previous: $previousMediaItemIndex")
+                    if (previousMediaItemIndex >= 0) {
+                        highlightCurrentlyPlaying(fileItemIndex(previousMediaItemIndex), false)
+                    }
+                    previousMediaItemIndex = player.currentMediaItemIndex
+
+                    fileItemIndex(player.currentMediaItemIndex).let {
+                        highlightCurrentlyPlaying(it, true)
+                        if (lastVisibleItemIndex(mainListState.firstVisibleItemIndex) < it ||
+                            it < mainListState.firstVisibleItemIndex
+                        ) {
+                            scrollToItem(it)
+                        }
+                    }
+                }
+            }
+
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                playing.value = isPlaying
+            }
+        })
+
         mediaSession = MediaSession.Builder(this, player).build()
     }
 
@@ -44,46 +69,46 @@ class PlaybackService : MediaSessionService() {
     }
 }
 
-class PlayerListener: Player.Listener {
-    override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-        if (currentSongPath.value == currentPath.value) {
-            display("previous: $previousMediaItemIndex")
-            if (previousMediaItemIndex >= 0) {
-                highlightCurrentlyPlaying(fileIndex(previousMediaItemIndex), false)
-            }
-            previousMediaItemIndex = player.currentMediaItemIndex
-
-            fileIndex(player.currentMediaItemIndex).let {
-                highlightCurrentlyPlaying(it, true)
-                if (lastVisibleItemIndex(listState.firstVisibleItemIndex) < it ||
-                    it < listState.firstVisibleItemIndex
-                ) {
-                    scrollToItem(it)
-                }
-            }
-        }
-    }
-
-    override fun onIsPlayingChanged(isPlaying: Boolean) {
-        playing.value = isPlaying
-    }
-}
-
-fun initPlayer(context: Context): Player {
-    val player = ExoPlayer.Builder(context)
-        .setSeekBackIncrementMs(5000)
-        .setSeekForwardIncrementMs(5000)
-        .build()
-
-    player.addListener(PlayerListener())
-
-    player.prepare()
-    return player
-}
+//class PlayerListener: Player.Listener {
+//    override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+//        if (currentSongPath.value == currentPath.value) {
+//            display("previous: $previousMediaItemIndex")
+//            if (previousMediaItemIndex >= 0) {
+//                highlightCurrentlyPlaying(fileItemIndex(previousMediaItemIndex), false)
+//            }
+//            previousMediaItemIndex = player.currentMediaItemIndex
+//
+//            fileItemIndex(player.currentMediaItemIndex).let {
+//                highlightCurrentlyPlaying(it, true)
+//                if (lastVisibleItemIndex(mainListState.firstVisibleItemIndex) < it ||
+//                    it < mainListState.firstVisibleItemIndex
+//                ) {
+//                    scrollToItem(it)
+//                }
+//            }
+//        }
+//    }
+//
+//    override fun onIsPlayingChanged(isPlaying: Boolean) {
+//        playing.value = isPlaying
+//    }
+//}
+//
+//fun initPlayer(context: Context): Player {
+//    val player = ExoPlayer.Builder(context)
+//        .setSeekBackIncrementMs(5000)
+//        .setSeekForwardIncrementMs(5000)
+//        .build()
+//
+//    player.addListener(PlayerListener())
+//
+//    player.prepare()
+//    return player
+//}
 
 fun scrollToItem(index: Int) {
     CoroutineScope(Dispatchers.Main).launch {
-        listState.scrollToItem(index)
+        mainListState.scrollToItem(index)
     }
 }
 
@@ -92,21 +117,22 @@ fun lastVisibleItemIndex(firstVisibleItemIndex: Int): Int {
     return firstVisibleItemIndex + numberOfVisibleItems - 1
 }
 
-fun fileIndex(songIndex: Int): Int {
-    return mainList.indexOf(mainList.filter { it.isAudio }[songIndex])
+fun fileItemIndex(mediaItemIndex: Int): Int {
+    return mainList.indexOf(mainList.filter { it.isAudio }[mediaItemIndex])
 }
 
-fun updatePlaylist(item: FileItem) {
+fun updatePlaylist(items: List<FileItem>) {
     previousMediaItemIndex = -1
-    player.setMediaItems(
-        mainList
+    player?.setMediaItems(
+        items
             .filter { it.isAudio }
-            .map { MediaItem.fromUri(Uri.fromFile(it.path)) })
+            .map { MediaItem.fromUri(Uri.fromFile(it.path)) }
+    )
 }
 
 fun play(item: FileItem) {
-    player.seekToDefaultPosition(mainList.filter { it.isAudio }.indexOf(item))
-    player.play()
+    player?.seekToDefaultPosition(mainList.filter { it.isAudio }.indexOf(item))
+    player?.play()
 }
 
 fun highlightCurrentlyPlaying(index: Int, isPlaying: Boolean) {

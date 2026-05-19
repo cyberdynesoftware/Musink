@@ -2,9 +2,9 @@ package cyberdynesoftware.musink
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
@@ -66,7 +66,9 @@ import androidx.core.app.ActivityCompat.requestPermissions
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.media3.common.Player
-import androidx.media3.session.MediaSession
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
+import com.google.common.util.concurrent.MoreExecutors
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.lazy.LazyColumnMMD
 import com.mudita.mmd.components.menus.DropdownMenuItemMMD
@@ -81,19 +83,18 @@ import cyberdynesoftware.musink.ui.theme.MusinkTheme
 import kotlinx.coroutines.launch
 import java.io.File
 
-lateinit var player: Player
-lateinit var mediaSession: MediaSession
+var player: Player? = null
 
 class MainActivity : ComponentActivity() {
 
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        player = initPlayer(baseContext)
-        mediaSession = MediaSession.Builder(baseContext, player).build()
+        //player = initPlayer(baseContext)
         checkStoragePermission()
         navTo(startingDirectory())
-        checkBluetoothPermission()
+        initBluetoothProfileProxy(baseContext)
+        requestBluetoothPermission()
         enableEdgeToEdge()
         setContent {
             MusinkTheme {
@@ -111,8 +112,7 @@ class MainActivity : ComponentActivity() {
     }
 
 
-    fun checkBluetoothPermission() {
-        initBluetooth(baseContext)
+    fun requestBluetoothPermission() {
         if (!checkBluetoothPermission(baseContext)) {
             requestPermissions(this, arrayOf(Manifest.permission.BLUETOOTH_CONNECT), 17)
         }
@@ -127,17 +127,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String?>,
-        grantResults: IntArray,
-        deviceId: Int
-    ) {
-        display("onRequestPermissionResult")
-        if (requestCode == 17 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            display("granted")
-            initBluetooth(baseContext)
-        }
+    override fun onStart() {
+        super.onStart()
+        val sessionToken =
+            SessionToken(this, ComponentName(this, PlaybackService::class.java))
+        val controllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
+        controllerFuture.addListener(
+            { player = controllerFuture.get() },
+            MoreExecutors.directExecutor(),
+        )
     }
 }
 
@@ -151,13 +149,13 @@ fun navTo(path: File) {
     mainList.clear()
     mainList.addAll(listDirectory(path))
     scrollToItem(0)
-
-    if (currentSongPath.value == path) {
-        highlightCurrentlyPlaying(fileIndex(player.currentMediaItemIndex), true)
-    }
+//
+//    if (currentSongPath.value == path) {
+//        highlightCurrentlyPlaying(fileItemIndex(player?.currentMediaItemIndex), true)
+//    }
 }
 
-val listState = LazyListState()
+val mainListState = LazyListState()
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -197,7 +195,7 @@ fun MainContent() {
                     .consumeWindowInsets(innerPadding)
                     .weight(1f)
                     .imePadding(),
-                state = listState
+                state = mainListState
             ) {
                 itemsIndexed(mainList) { index, item ->
                     Row(
@@ -213,7 +211,7 @@ fun MainContent() {
                                             play(item)
                                         } else {
                                             currentSongPath.value = currentPath.value
-                                            updatePlaylist(item)
+                                            updatePlaylist(mainList)
                                             play(item)
                                         }
                                     }
@@ -346,7 +344,7 @@ fun ButtonRow() {
     ) {
         IconButton(
             onClick = {
-                player.seekToPreviousMediaItem()
+                player?.seekToPreviousMediaItem()
             }
         ) {
             Icon(
@@ -357,7 +355,7 @@ fun ButtonRow() {
         }
         IconButton(
             onClick = {
-                player.seekBack()
+                player?.seekBack()
             }
         ) {
             Icon(
@@ -368,10 +366,10 @@ fun ButtonRow() {
         }
         IconButton(
             onClick = {
-                if (player.isPlaying) {
-                    player.pause()
+                if (player?.isPlaying == true) {
+                    player?.pause()
                 } else {
-                    player.play()
+                    player?.play()
                 }
             }
         ) {
@@ -391,7 +389,7 @@ fun ButtonRow() {
         }
         IconButton(
             onClick = {
-                player.seekForward()
+                player?.seekForward()
             }
         ) {
             Icon(
@@ -402,7 +400,7 @@ fun ButtonRow() {
         }
         IconButton(
             onClick = {
-                player.seekToNextMediaItem()
+                player?.seekToNextMediaItem()
             }
         ) {
             Icon(
@@ -445,7 +443,7 @@ fun OptionsMenu() {
                         shuffleEnabled,
                         onCheckedChange = {
                             shuffleEnabled = it
-                            player.shuffleModeEnabled = it
+                            player?.shuffleModeEnabled = it
                         }
                     )
                 }

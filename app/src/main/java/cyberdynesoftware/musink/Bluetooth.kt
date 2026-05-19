@@ -17,7 +17,7 @@ import java.lang.reflect.Method
 var headsetProfileProxy: BluetoothHeadset? = null
 var a2dpProfileProxy: BluetoothA2dp? = null
 
-fun initBluetooth(context: Context) {
+fun initBluetoothProfileProxy(context: Context) {
     getSystemService(context, BluetoothManager::class.java)?.let { blMan ->
         val profileListener = object : BluetoothProfile.ServiceListener {
             override fun onServiceConnected(profile: Int, proxy: BluetoothProfile?) {
@@ -31,7 +31,7 @@ fun initBluetooth(context: Context) {
 
             override fun onServiceDisconnected(profile: Int) {
                 if (profile == BluetoothProfile.A2DP) {
-                    player.pause()
+                    player?.pause()
                 }
             }
         }
